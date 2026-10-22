@@ -298,6 +298,8 @@ export class HearthGuardService {
       sharedFields: [...SHARED_FIELDS],
       withheldFields: WITHHELD_FIELDS,
       limitations: LIMITATIONS,
+      // What the home's own rules concluded before any peer input, for a before/after view.
+      assessmentBeforePeer: assess(rev.engine, 0, undefined),
       updatedAssessment: assessment,
     };
   }
@@ -317,7 +319,9 @@ export class HearthGuardService {
       if (rev.assessment.classification === "no_concern") {
         return { incidentId: incident.incidentId, status: "not_needed" as const, reason: "The current assessment found no security concern, so no protective action is proposed.", proposal: null, recorded: false };
       }
-      const actions = buildActions(home, rev.engine.triggeredRules.map((r) => r.ruleId), incident, rev.assessment);
+      // Peer intelligence can raise attention, but disruptive steps need this home's own evidence.
+      const ownEvidenceLikely = assess(rev.engine).classification === "likely_security_concern";
+      const actions = buildActions(home, rev.engine.triggeredRules.map((r) => r.ruleId), incident, rev.assessment, ownEvidenceLikely);
       for (const p of incident.proposals) if (p.status === "pending") p.status = "superseded";
       const at = nowIso();
       const proposal: ResponseProposal = {
@@ -329,9 +333,11 @@ export class HearthGuardService {
         status: "pending",
         summary: `${actions.length} simulated action(s) for a "${rev.assessment.classification.replace(/_/g, " ")}" assessment (score ${rev.assessment.score}).`,
         proportionality:
-          rev.assessment.classification === "likely_security_concern"
-            ? "Protective set: the evidence supports a likely security concern."
-            : "Verification-first set: the evidence is inconclusive, so disruptive steps such as disabling the keypad are left out.",
+          rev.assessment.classification !== "likely_security_concern"
+            ? "Verification-first set: the evidence is inconclusive, so disruptive steps such as disabling the keypad are left out."
+            : ownEvidenceLikely
+              ? "Protective set: the evidence supports a likely security concern."
+              : "Cautious set: a peer match raised this to a likely concern, but a match is not proof, so disruptive steps such as disabling the keypad wait for this home's own evidence.",
         actions,
       };
       incident.proposals.push(proposal);
@@ -380,13 +386,13 @@ function diffRevisions(prev: Assessment, next: Assessment, prevRules: string[], 
   };
 }
 
-function buildActions(home: Home, ruleIds: string[], incident: Incident, assessment: Assessment): ResponseAction[] {
+function buildActions(home: Home, ruleIds: string[], incident: Incident, assessment: Assessment, ownEvidenceLikely: boolean): ResponseAction[] {
   const has = (r: { id: string }) => ruleIds.includes(r.id);
   const lock = home.devices.find((d) => d.kind === "lock");
   const actions: ResponseAction[] = [];
   // Proportionality: disruptive steps only when the evidence supports a likely concern.
   const likely = assessment.classification === "likely_security_concern";
-  if (has(RULES.R1) && lock && likely) {
+  if (has(RULES.R1) && lock && likely && ownEvidenceLikely) {
     actions.push({ id: "lock.disable_keypad", label: `Disable keypad entry on ${lock.name} for 2 hours`, rationale: "Repeated incorrect codes were entered.", basedOn: [RULES.R1.id], simulated: true });
   }
   if ((has(RULES.R2) || has(RULES.R4) || (has(RULES.R1) && likely)) && lock) {

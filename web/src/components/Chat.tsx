@@ -23,8 +23,12 @@ export function Chat({
   onSend: (text: string) => void;
 }) {
   const [draft, setDraft] = useState("");
-  const endRef = useRef<HTMLDivElement>(null);
-  useEffect(() => endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }), [messages.length, busy]);
+  const logRef = useRef<HTMLDivElement>(null);
+  // Keep the newest message in view without scrolling the whole page.
+  useEffect(() => {
+    const el = logRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages.length, busy]);
 
   const submit = (text: string) => {
     const t = text.trim();
@@ -42,7 +46,7 @@ export function Chat({
         <span className="text-[11px] text-slate-500">Deterministic assistant · every step is a real MCP tool call</span>
       </div>
 
-      <div className="scroll-thin flex-1 space-y-4 overflow-y-auto px-4 py-4" data-testid="chat-log">
+      <div ref={logRef} className="scroll-thin flex-1 space-y-4 overflow-y-auto px-4 py-4" data-testid="chat-log">
         {messages.length === 0 && !busy && (
           <div className="mx-auto max-w-md py-10 text-center text-sm text-slate-500">
             Pick a synthetic home and scenario on the left, then ask HearthGuard to investigate.
@@ -56,7 +60,6 @@ export function Chat({
             <Spinner /> Calling HearthGuard MCP tools…
           </div>
         )}
-        <div ref={endRef} />
       </div>
 
       <div className="border-t border-slate-800 p-3">

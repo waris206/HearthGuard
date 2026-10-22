@@ -81,6 +81,7 @@ export interface PeerResult {
   sharedFields: string[];
   withheldFields: string[];
   limitations: string[];
+  assessmentBeforePeer?: Assessment;
   updatedAssessment: Assessment;
 }
 

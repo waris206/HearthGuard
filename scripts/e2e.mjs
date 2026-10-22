@@ -65,6 +65,15 @@ try {
   assert(await page.getByText("Likely security concern").first().isVisible(), "classification badge visible");
   assert((await page.getByTestId("timeline").locator("li").count()) === 12, "timeline lists 12 events");
   assert(await page.getByText("ENTRY_REPEATED_FAILED_ACCESS").first().isVisible(), "peer match shown");
+  const kept = await page.getByTestId("kept-local").innerText();
+  assert(kept.includes("12 raw events") && kept.includes("raw Bluetooth fingerprint"), "trail lists what stays local");
+  const shared = await page.getByTestId("shared-indicators").innerText();
+  assert((await page.getByTestId("shared-indicators").locator("li").count()) === 3, "trail shows the 3 shared indicators");
+  assert(!/ble:|as-0|Front door|Resident/.test(shared), "shared indicators contain no raw home data");
+  const effect = await page.getByTestId("peer-effect").innerText();
+  assert(effect.includes("83") && effect.includes("98"), "trail shows rules-only 83 vs with-peer 98");
+  await page.locator("#cross-home").scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${OUT}/02b-cross-home.png` });
   assert(await page.getByRole("button", { name: "Review & confirm" }).isVisible(), "response awaiting confirmation");
   await page.locator("li", { hasText: "HG-R4" }).filter({ hasText: "Door opened without unlock" }).first().hover();
   await page.screenshot({ path: `${OUT}/02-investigation.png` });
@@ -75,6 +84,8 @@ try {
   const score2 = await page.getByTestId("risk-score").innerText();
   assert(score2.startsWith("48"), `what-if lowers score to 48 (got ${score2.replace(/\n/g, "")})`);
   assert(await page.getByText("What-if active").isVisible(), "what-if banner visible");
+  const cmp = await page.getByTestId("context-compare").innerText();
+  assert(cmp.includes("98") && cmp.includes("48") && cmp.includes("HG-R2"), "before/after context comparison shown");
   await page.screenshot({ path: `${OUT}/03-whatif.png` });
 
   console.log("4. Revert and confirm the response");
@@ -106,11 +117,15 @@ try {
   await page.screenshot({ path: `${OUT}/05-confirmed.png`, fullPage: false });
 
   console.log("5. Home B sees Home A's indicator");
-  await page.getByRole("button", { name: /Unrecognised device returns/ }).click();
+  await page.getByRole("button", { name: /See the receiving side/ }).click();
   await page.getByText("Connected to Cedar Apartment").waitFor();
   await page.getByRole("button", { name: /Investigate this window/ }).click();
   await page.getByText("Cross-home check:").first().waitFor({ timeout: 10000 });
   assert(await page.getByText("Likely security concern").first().isVisible(), "Home B escalates to likely concern via peer indicator");
+  const effectB = await page.getByTestId("peer-effect").innerText();
+  assert(effectB.includes("35") && effectB.includes("50"), "Home B trail shows 35 (own rules) vs 50 (with Home A's indicator)");
+  assert((await page.getByTestId("proportionality").innerText()).startsWith("Cautious set"), "peer-driven concern gets a cautious response, not a keypad lockout");
+  await page.locator("#cross-home").scrollIntoViewIfNeeded();
   await page.screenshot({ path: `${OUT}/06-home-b.png` });
 
   console.log("6. Normal scenario");

@@ -52,7 +52,7 @@ npm run dev          # then open http://localhost:5173
 ### Tests and checks
 
 ```bash
-npm test             # 46 unit + integration tests (vitest), incl. real MCP client over HTTP and security hardening
+npm test             # 48 unit + integration tests (vitest), incl. real MCP client over HTTP and security hardening
 npm run typecheck    # server + web TypeScript
 npm run build && npm run e2e   # headless-Chromium end-to-end demo run (Playwright), screenshots in e2e-screenshots/
 npm run smoke        # with the server running: SDK client smoke test of all four tools
@@ -175,6 +175,7 @@ The rules are deterministic and fully explained. Each triggered rule names the e
 * Raw radio fingerprints and home ids are replaced with **HMAC-SHA256 tokens** using a shared demo key. Timestamps are reduced to the UTC hour.
 * Never shared: timelines, event ids, exact times, occupancy and presence, device names and locations, access-code labels, member identities.
 * Every match carries an `interpretation`, and the check returns a disclaimer: a match is a correlation, **not proof of compromise**, and it never identifies anyone. Peer intelligence adds at most +15 and can't create a concern when no rule fired.
+* **Cross-home evidence trail (UI).** Four steps, all from real tool results: (1) what stays local in this home, (2) the exact compact indicators derived and shared (or "for comparison only" during a what-if), (3) what other homes reported, (4) the score from the home's own rules vs. with peer intelligence (`assessmentBeforePeer` vs `updatedAssessment`). A button opens the other synthetic home's scenario so you can watch the same indicator from the receiving side.
 * A home never matches its own indicators. **Hypothetical (what-if) revisions are never published.**
 * Tests in `server/test/privacy.test.ts` serialise everything Home B can see and assert that none of Home A's raw values appear in it.
 
@@ -183,7 +184,7 @@ The rules are deterministic and fully explained. Each triggered rule names the e
 ## Human-controlled response
 
 * `prepare_response(decision="propose")` returns actions marked `simulated: true` and **records nothing**.
-* **Proportionality.** A likely concern gets the protective set (including disabling the keypad). An inconclusive assessment gets a verification-first set without disruptive steps. The proposal states which, and the recommended next steps match.
+* **Proportionality.** A likely concern from the home's **own** evidence gets the protective set (including disabling the keypad). A concern reached only because of a peer match gets a **cautious set**, because a match is not proof. An inconclusive assessment gets a **verification-first set**. The proposal states which, and the recommended next steps match.
 * Recording needs `decision="confirm"` or `"cancel"`, plus the matching `proposalId` **and** `confirmationCode`. Wrong code, unknown proposal, already-decided, or superseded proposals are rejected (tested).
 * New evidence (a new revision) **supersedes** pending proposals, so nobody can confirm a stale plan.
 * In the UI, confirmation happens only through an explicit dialog click. The confirmation code stays server-side and is redacted from what the browser sees.

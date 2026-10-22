@@ -106,3 +106,16 @@ describe("peer match wording", () => {
     expect(res.updatedAssessment.uncertainty.factors.join(" ")).toMatch(/not people/);
   });
 });
+
+describe("before/after peer view", () => {
+  it("reports the home's own assessment separately from the peer-adjusted one", () => {
+    const svc = new HearthGuardService();
+    const a = svc.investigateEvents({ homeId: "home-a", scenarioId: "a-suspicious-front-door" });
+    svc.checkPeerIntelligence({ incidentId: a.incidentId });
+    const b = svc.investigateEvents({ homeId: "home-b", scenarioId: "b-followup-probe" });
+    const res = svc.checkPeerIntelligence({ incidentId: b.incidentId });
+    expect(res.assessmentBeforePeer).toMatchObject({ score: 35, classification: "inconclusive" });
+    expect(res.updatedAssessment).toMatchObject({ score: 50, classification: "likely_security_concern" });
+    expect(res.updatedAssessment.score - res.assessmentBeforePeer.score).toBe(res.scoreAdjustment);
+  });
+});

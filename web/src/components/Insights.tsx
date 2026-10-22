@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import type { Assessment, Investigation, PeerResult, Proposal } from "../api";
+import type { Assessment, Investigation, Proposal } from "../api";
 import { ClassBadge, Empty, Icon, LEVEL_BAR, Panel, Spinner } from "./ui";
 
 export function AssessmentPanel({ investigation, assessment }: { investigation: Investigation | null; assessment: Assessment | null }) {
@@ -39,11 +39,28 @@ export function AssessmentPanel({ investigation, assessment }: { investigation: 
         <p className="mt-1.5 text-[11px] leading-snug text-slate-500">{a.scoreNote}</p>
       </div>
       {investigation.changes && (
-        <p className="mt-3 rounded-lg bg-slate-950/60 px-2.5 py-1.5 text-xs text-slate-300 ring-1 ring-slate-800">
-          Changed from revision {investigation.revision - 1}: score {investigation.changes.scoreFrom} → {investigation.changes.scoreTo}
-          {investigation.changes.rulesRemoved.length > 0 && <> · removed {investigation.changes.rulesRemoved.join(", ")}</>}
-          {investigation.changes.rulesAdded.length > 0 && <> · added {investigation.changes.rulesAdded.join(", ")}</>}
-        </p>
+        <div className="mt-3 rounded-lg bg-slate-950/60 p-2.5 ring-1 ring-sky-900/60" data-testid="context-compare">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-sky-300">New context changed the assessment</p>
+          <div className="mt-1.5 grid grid-cols-2 gap-2">
+            <div>
+              <p className="text-[11px] text-slate-500">Before (rev {investigation.revision - 1})</p>
+              <p className="font-mono text-lg text-slate-300">{investigation.changes.scoreFrom}</p>
+              <ClassBadge value={investigation.changes.classificationFrom} />
+            </div>
+            <div>
+              <p className="text-[11px] text-slate-500">Now (rev {investigation.revision}{occ ? `, assuming ${occ}` : ", recorded data"})</p>
+              <p className="font-mono text-lg text-slate-50">{investigation.changes.scoreTo}</p>
+              <ClassBadge value={investigation.changes.classificationTo} />
+            </div>
+          </div>
+          {(investigation.changes.rulesRemoved.length > 0 || investigation.changes.rulesAdded.length > 0) && (
+            <p className="mt-2 text-[11px] text-slate-400">
+              {investigation.changes.rulesRemoved.length > 0 && <>No longer triggered: {investigation.changes.rulesRemoved.join(", ")}. </>}
+              {investigation.changes.rulesAdded.length > 0 && <>Newly triggered: {investigation.changes.rulesAdded.join(", ")}. </>}
+              Still unexplained: {investigation.triggeredRules.map((r) => r.ruleId).join(", ") || "nothing"}.
+            </p>
+          )}
+        </div>
       )}
       <p className="mt-3 text-sm text-slate-200">{a.summary}</p>
       {a.uncertainty.factors.length > 0 && (
@@ -196,86 +213,6 @@ export function TimelinePanel({ investigation, highlight }: { investigation: Inv
           );
         })}
       </ol>
-    </Panel>
-  );
-}
-
-export function PeerPanel({ peer, homeName }: { peer: PeerResult | null; homeName?: string }) {
-  if (!peer) {
-    return (
-      <Panel title="Cross-home intelligence" icon={<Icon name="network" />}>
-        <Empty>Not checked yet. Ask “Has another home seen a similar pattern?”</Empty>
-      </Panel>
-    );
-  }
-  return (
-    <Panel
-      title="Cross-home intelligence"
-      icon={<Icon name="network" />}
-      right={<span className={`chip ${peer.matches.length ? "border-rose-700/60 text-rose-300" : "border-slate-700 text-slate-400"}`}>{peer.matches.length} match{peer.matches.length === 1 ? "" : "es"}</span>}
-    >
-      <p className="text-xs text-slate-400">
-        Compared {peer.queried.length} indicator(s) derived from {homeName ?? "this home"} against {peer.peerIndicatorsVisible} indicator(s) shared by other synthetic homes. Score adjustment{" "}
-        <span className="font-mono text-slate-200">+{peer.scoreAdjustment}</span>.
-      </p>
-      <p className="mt-2 rounded-lg bg-slate-950/60 px-2.5 py-1.5 text-[11px] text-slate-300 ring-1 ring-slate-800" data-testid="peer-interpretation">
-        {peer.interpretation}
-      </p>
-      {peer.matches.length > 0 && (
-        <ul className="mt-2 space-y-1.5">
-          {peer.matches.map((m) => (
-            <li key={m.indicator.indicatorId} className="rounded-lg border border-slate-800 bg-slate-950/50 p-2">
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-mono text-xs text-slate-200">{m.indicator.patternCode}</span>
-                <span className={`chip ${m.strength === "strong" ? "border-rose-700/60 text-rose-300" : m.strength === "moderate" ? "border-amber-700/60 text-amber-300" : "border-slate-700 text-slate-400"}`}>
-                  {m.strength}
-                </span>
-              </div>
-              <p className="mt-0.5 text-[11px] text-slate-500">
-                matched on {m.matchedOn.join(" + ")} · from {m.indicator.sourceHomeToken} · {m.indicator.observedHour}
-              </p>
-              <p className="mt-0.5 text-[11px] text-slate-400">{m.interpretation}</p>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <div className="rounded-lg border border-emerald-900/60 bg-emerald-950/20 p-2">
-          <p className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-300">
-            <Icon name="eye" className="h-3 w-3" /> Shared
-          </p>
-          <ul className="mt-1 space-y-0.5 font-mono text-[11px] text-slate-300">
-            {peer.sharedFields.map((f) => (
-              <li key={f}>{f}</li>
-            ))}
-          </ul>
-        </div>
-        <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-2">
-          <p className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-            <Icon name="eyeOff" className="h-3 w-3" /> Never shared
-          </p>
-          <ul className="mt-1 space-y-0.5 text-[11px] text-slate-400">
-            {peer.withheldFields.map((f) => (
-              <li key={f}>{f}</li>
-            ))}
-          </ul>
-        </div>
-      </div>
-
-      <details className="mt-2">
-        <summary className="cursor-pointer text-xs text-slate-500 hover:text-slate-300">Exact indicator records sent ({peer.queried.length})</summary>
-        <pre className="scroll-thin mt-1 max-h-48 overflow-auto rounded bg-slate-950 p-2 font-mono text-[11px] text-slate-400">{JSON.stringify(peer.queried, null, 2)}</pre>
-      </details>
-      <p className="mt-2 text-[11px] text-slate-500">{peer.publishNote}</p>
-      <details className="mt-1">
-        <summary className="cursor-pointer text-xs text-slate-500 hover:text-slate-300">Limitations</summary>
-        <ul className="mt-1 list-disc space-y-1 pl-4 text-[11px] text-slate-400">
-          {peer.limitations.map((l) => (
-            <li key={l}>{l}</li>
-          ))}
-        </ul>
-      </details>
     </Panel>
   );
 }

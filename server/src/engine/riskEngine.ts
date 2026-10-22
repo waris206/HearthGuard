@@ -337,6 +337,9 @@ export function assess(engine: EngineResult, peerAdjustment = 0, peerFactor?: st
   else classification = "inconclusive";
 
   const ids = new Set(engine.triggeredRules.map((r) => r.ruleId));
+  // Disruptive advice needs this home's own evidence; a peer match alone is not proof.
+  const ownUncertainty = engine.uncertaintyFactors.reduce((s, f) => s + f.weight, 0);
+  const ownEvidenceLikely = engine.baseScore >= THRESHOLDS.likelyConcernScore && ownUncertainty < 3;
   const steps: string[] = [];
   if (classification === "no_concern") {
     steps.push("No action needed. The activity matches expected household behaviour.");
@@ -344,7 +347,7 @@ export function assess(engine: EngineResult, peerAdjustment = 0, peerFactor?: st
     if (ids.has(RULES.R4.id) || ids.has(RULES.R2.id)) steps.push("Check on the home: contact household members to confirm nobody is inside.");
     if (ids.has(RULES.R1.id))
       steps.push(
-        classification === "likely_security_concern"
+        classification === "likely_security_concern" && ownEvidenceLikely
           ? "Temporarily disable keypad entry and rotate access codes."
           : "Ask household members whether anyone mistyped the code; rotate codes if nobody did.",
       );

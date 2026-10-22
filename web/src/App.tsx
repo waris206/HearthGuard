@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type HomeSummary, type IncidentRecord, type TurnResult } from "./api";
 import { Chat, type UiMessage } from "./components/Chat";
-import { AssessmentPanel, ConfirmDialog, EvidencePanel, PeerPanel, ResponsePanel, TimelinePanel } from "./components/Insights";
+import { CrossHomePanel } from "./components/CrossHome";
+import { AssessmentPanel, ConfirmDialog, EvidencePanel, ResponsePanel, TimelinePanel } from "./components/Insights";
 import { HomeOverview, IncidentHistory, ScenarioPicker } from "./components/Sidebar";
 import { Icon } from "./components/ui";
 
@@ -169,9 +170,9 @@ export default function App() {
         <div className="scroll-thin space-y-4 lg:h-[calc(100vh-7.5rem)] lg:overflow-y-auto lg:pr-1">
           <AssessmentPanel investigation={investigation} assessment={assessment} />
           <ResponsePanel proposal={proposal} canPropose={canPropose} busy={busy} onPropose={() => send("What should I do?")} onReview={() => setConfirmOpen(true)} />
+          <CrossHomePanel peer={state?.peer ?? null} investigation={investigation} context={state?.context ?? null} busy={busy} onOpenCounterpart={select} />
           <EvidencePanel investigation={investigation} onHover={setHighlight} />
           <TimelinePanel investigation={investigation} highlight={highlight} />
-          <PeerPanel peer={state?.peer ?? null} homeName={state?.context?.home.name} />
         </div>
       </main>
 

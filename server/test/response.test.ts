@@ -103,3 +103,19 @@ describe("proportional response", () => {
     expect(svc.getIncident(incidentId).revisions.at(-1)!.assessment.recommendedNextSteps.join(" ")).not.toMatch(/disable keypad/i);
   });
 });
+
+describe("peer match is not proof", () => {
+  it("a concern reached only via a peer match gets no disruptive action", () => {
+    const svc = new HearthGuardService();
+    const a = svc.investigateEvents({ homeId: "home-a", scenarioId: "a-suspicious-front-door" });
+    svc.checkPeerIntelligence({ incidentId: a.incidentId });
+    const b = svc.investigateEvents({ homeId: "home-b", scenarioId: "b-followup-probe" });
+    const peer = svc.checkPeerIntelligence({ incidentId: b.incidentId });
+    expect(peer.assessmentBeforePeer.classification).toBe("inconclusive");
+    expect(peer.updatedAssessment.classification).toBe("likely_security_concern");
+    const p = svc.prepareResponse({ incidentId: b.incidentId, decision: "propose" }).proposal!;
+    expect(p.actions.map((x) => x.id)).not.toContain("lock.disable_keypad");
+    expect(p.proportionality).toMatch(/^Cautious set: a peer match/);
+    expect(peer.updatedAssessment.recommendedNextSteps.join(" ")).not.toMatch(/disable keypad/i);
+  });
+});
