@@ -1,0 +1,81 @@
+{
+  "id": "home-b",
+  "name": "Cedar Apartment (synthetic Home B)",
+  "timezone": "America/Los_Angeles",
+  "members": [
+    { "id": "r1", "label": "Resident 1 (owner)", "role": "resident" }
+  ],
+  "devices": [
+    { "id": "lock-main", "name": "Main door smart lock (keypad)", "kind": "lock", "location": "Main door", "entry": true, "status": "online" },
+    { "id": "contact-main", "name": "Main door contact sensor", "kind": "contact", "location": "Main door", "entry": true, "status": "online" },
+    { "id": "motion-living", "name": "Living room motion sensor", "kind": "motion", "location": "Living room", "entry": false, "status": "online" },
+    { "id": "cam-door", "name": "Doorbell camera", "kind": "camera", "location": "Main door", "entry": false, "status": "online" },
+    { "id": "hub", "name": "Home hub (Wi-Fi/Bluetooth presence)", "kind": "hub", "location": "Hall", "entry": false, "status": "online" }
+  ],
+  "settings": {
+    "awayModeEnabled": true,
+    "shareIndicators": true,
+    "notifyMembers": ["r1"],
+    "accessCodes": [
+      { "label": "resident-1", "holder": "r1", "kind": "resident" }
+    ]
+  },
+  "scenarios": [
+    {
+      "id": "b-prior-probe",
+      "title": "Keypad probing the night before",
+      "description": "Nobody is home. An unrecognised Bluetooth device appears and four incorrect codes are entered. Nobody gets in. HearthGuard derives and shares compact indicators from this incident at startup.",
+      "expected": "ambiguous",
+      "window": { "start": "2026-10-20T21:00:00-07:00", "end": "2026-10-20T21:45:00-07:00" },
+      "occupancyAtStart": {
+        "mode": "away",
+        "members": [ { "memberId": "r1", "presence": "away", "since": "2026-10-20T18:10:00-07:00" } ]
+      },
+      "events": [
+        { "id": "bp-01", "ts": "2026-10-20T21:14:00-07:00", "deviceId": "cam-door", "type": "camera.person_detected", "summary": "Doorbell camera detected a person" },
+        { "id": "bp-02", "ts": "2026-10-20T21:14:30-07:00", "deviceId": "hub", "type": "network.unknown_device", "actorFingerprint": "ble:5e:91:c2:aa:10:7f", "summary": "Hub saw an unrecognised Bluetooth device near the main door (-52 dBm)" },
+        { "id": "bp-03", "ts": "2026-10-20T21:15:00-07:00", "deviceId": "lock-main", "type": "lock.unlock_failed", "summary": "Keypad: incorrect code entered" },
+        { "id": "bp-04", "ts": "2026-10-20T21:16:00-07:00", "deviceId": "lock-main", "type": "lock.unlock_failed", "summary": "Keypad: incorrect code entered" },
+        { "id": "bp-05", "ts": "2026-10-20T21:17:30-07:00", "deviceId": "lock-main", "type": "lock.unlock_failed", "summary": "Keypad: incorrect code entered" },
+        { "id": "bp-06", "ts": "2026-10-20T21:19:00-07:00", "deviceId": "lock-main", "type": "lock.unlock_failed", "summary": "Keypad: incorrect code entered" }
+      ]
+    },
+    {
+      "id": "b-normal-morning",
+      "title": "Ordinary morning departure",
+      "description": "The resident leaves for work and the door locks behind them.",
+      "expected": "normal",
+      "window": { "start": "2026-10-22T07:45:00-07:00", "end": "2026-10-22T08:30:00-07:00" },
+      "occupancyAtStart": {
+        "mode": "home",
+        "members": [ { "memberId": "r1", "presence": "home", "since": "2026-10-21T19:02:00-07:00" } ]
+      },
+      "events": [
+        { "id": "bn-01", "ts": "2026-10-22T08:01:00-07:00", "deviceId": "motion-living", "type": "motion.detected", "summary": "Living room motion" },
+        { "id": "bn-02", "ts": "2026-10-22T08:05:00-07:00", "deviceId": "contact-main", "type": "contact.opened", "summary": "Main door opened" },
+        { "id": "bn-03", "ts": "2026-10-22T08:05:30-07:00", "deviceId": "contact-main", "type": "contact.closed", "summary": "Main door closed" },
+        { "id": "bn-04", "ts": "2026-10-22T08:05:40-07:00", "deviceId": "lock-main", "type": "lock.locked", "summary": "Main door locked" },
+        { "id": "bn-05", "ts": "2026-10-22T08:07:00-07:00", "deviceId": "hub", "type": "presence.departed", "memberId": "r1", "summary": "Resident 1's phone left the home network" }
+      ]
+    },
+    {
+      "id": "b-followup-probe",
+      "title": "Unrecognised device returns",
+      "description": "Nobody is home. The same unrecognised device is seen again and three incorrect codes are entered. Run Home A's suspicious scenario first to see a cross-home match.",
+      "expected": "suspicious",
+      "window": { "start": "2026-10-22T19:45:00-07:00", "end": "2026-10-22T20:30:00-07:00" },
+      "occupancyAtStart": {
+        "mode": "away",
+        "members": [ { "memberId": "r1", "presence": "away", "since": "2026-10-22T08:07:00-07:00" } ]
+      },
+      "events": [
+        { "id": "bf-01", "ts": "2026-10-22T19:58:00-07:00", "deviceId": "hub", "type": "network.unknown_device", "actorFingerprint": "ble:5e:91:c2:aa:10:7f", "summary": "Hub saw an unrecognised Bluetooth device near the main door (-50 dBm)" },
+        { "id": "bf-02", "ts": "2026-10-22T19:59:00-07:00", "deviceId": "cam-door", "type": "camera.person_detected", "summary": "Doorbell camera detected a person" },
+        { "id": "bf-03", "ts": "2026-10-22T20:00:00-07:00", "deviceId": "lock-main", "type": "lock.unlock_failed", "summary": "Keypad: incorrect code entered" },
+        { "id": "bf-04", "ts": "2026-10-22T20:01:00-07:00", "deviceId": "lock-main", "type": "lock.unlock_failed", "summary": "Keypad: incorrect code entered" },
+        { "id": "bf-05", "ts": "2026-10-22T20:02:30-07:00", "deviceId": "lock-main", "type": "lock.unlock_failed", "summary": "Keypad: incorrect code entered" },
+        { "id": "bf-06", "ts": "2026-10-22T20:04:00-07:00", "deviceId": "cam-door", "type": "camera.offline", "summary": "Doorbell camera stopped reporting" }
+      ]
+    }
+  ]
+}

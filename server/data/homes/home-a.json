@@ -1,0 +1,107 @@
+{
+  "id": "home-a",
+  "name": "Maple House (synthetic Home A)",
+  "timezone": "America/Los_Angeles",
+  "members": [
+    { "id": "r1", "label": "Resident 1 (owner)", "role": "resident" },
+    { "id": "r2", "label": "Resident 2", "role": "resident" }
+  ],
+  "devices": [
+    { "id": "lock-front", "name": "Front door smart lock (keypad)", "kind": "lock", "location": "Front door", "entry": true, "status": "online" },
+    { "id": "contact-front", "name": "Front door contact sensor", "kind": "contact", "location": "Front door", "entry": true, "status": "online" },
+    { "id": "contact-back", "name": "Back door contact sensor", "kind": "contact", "location": "Back door", "entry": true, "status": "online" },
+    { "id": "motion-hall", "name": "Hallway motion sensor", "kind": "motion", "location": "Hallway", "entry": false, "status": "online" },
+    { "id": "motion-kitchen", "name": "Kitchen motion sensor", "kind": "motion", "location": "Kitchen", "entry": false, "status": "online" },
+    { "id": "cam-porch", "name": "Porch camera", "kind": "camera", "location": "Front porch", "entry": false, "status": "online" },
+    { "id": "hub", "name": "Home hub (Wi-Fi/Bluetooth presence)", "kind": "hub", "location": "Living room", "entry": false, "status": "online" }
+  ],
+  "settings": {
+    "awayModeEnabled": true,
+    "shareIndicators": true,
+    "notifyMembers": ["r1", "r2"],
+    "accessCodes": [
+      { "label": "resident-1", "holder": "r1", "kind": "resident" },
+      { "label": "resident-2", "holder": "r2", "kind": "resident" },
+      { "label": "guest:dog-walker", "holder": "Dog walker", "kind": "guest", "schedule": "12:00-13:00" }
+    ]
+  },
+  "scenarios": [
+    {
+      "id": "a-normal-evening",
+      "title": "Evening return home",
+      "description": "Owner returns from work, mistypes the keypad once, then unlocks with their own code. A package drop-off is seen on the porch earlier.",
+      "expected": "normal",
+      "window": { "start": "2026-10-21T17:30:00-07:00", "end": "2026-10-21T18:30:00-07:00" },
+      "occupancyAtStart": {
+        "mode": "away",
+        "members": [
+          { "memberId": "r1", "presence": "away", "since": "2026-10-21T08:31:00-07:00" },
+          { "memberId": "r2", "presence": "away", "since": "2026-10-21T08:45:00-07:00" }
+        ]
+      },
+      "events": [
+        { "id": "an-01", "ts": "2026-10-21T17:42:00-07:00", "deviceId": "cam-porch", "type": "camera.person_detected", "summary": "Porch camera detected a person at the front step (no door interaction)" },
+        { "id": "an-02", "ts": "2026-10-21T18:02:00-07:00", "deviceId": "hub", "type": "presence.arrived", "memberId": "r1", "summary": "Resident 1's phone joined the home network" },
+        { "id": "an-03", "ts": "2026-10-21T18:03:00-07:00", "deviceId": "lock-front", "type": "lock.unlock_failed", "summary": "Keypad: incorrect code entered" },
+        { "id": "an-04", "ts": "2026-10-21T18:04:00-07:00", "deviceId": "lock-front", "type": "lock.unlocked", "codeLabel": "resident-1", "summary": "Front door unlocked with code resident-1" },
+        { "id": "an-05", "ts": "2026-10-21T18:04:30-07:00", "deviceId": "contact-front", "type": "contact.opened", "summary": "Front door opened" },
+        { "id": "an-06", "ts": "2026-10-21T18:05:00-07:00", "deviceId": "contact-front", "type": "contact.closed", "summary": "Front door closed" },
+        { "id": "an-07", "ts": "2026-10-21T18:05:20-07:00", "deviceId": "motion-hall", "type": "motion.detected", "summary": "Hallway motion" },
+        { "id": "an-08", "ts": "2026-10-21T18:06:00-07:00", "deviceId": "lock-front", "type": "lock.locked", "summary": "Front door locked" }
+      ]
+    },
+    {
+      "id": "a-suspicious-front-door",
+      "title": "Repeated front-door activity while away",
+      "description": "Nobody is home. Five incorrect keypad codes, an unrecognised Bluetooth device near the entry, the porch camera drops offline, then the back door opens without any unlock.",
+      "expected": "suspicious",
+      "window": { "start": "2026-10-21T13:45:00-07:00", "end": "2026-10-21T14:30:00-07:00" },
+      "occupancyAtStart": {
+        "mode": "away",
+        "members": [
+          { "memberId": "r1", "presence": "away", "since": "2026-10-21T08:31:00-07:00" },
+          { "memberId": "r2", "presence": "away", "since": "2026-10-21T08:45:00-07:00" }
+        ]
+      },
+      "events": [
+        { "id": "as-01", "ts": "2026-10-21T13:58:00-07:00", "deviceId": "cam-porch", "type": "camera.person_detected", "summary": "Porch camera detected a person at the front step" },
+        { "id": "as-02", "ts": "2026-10-21T13:59:00-07:00", "deviceId": "hub", "type": "network.unknown_device", "actorFingerprint": "ble:5e:91:c2:aa:10:7f", "summary": "Hub saw an unrecognised Bluetooth device near the front entry (-48 dBm)" },
+        { "id": "as-03", "ts": "2026-10-21T14:01:00-07:00", "deviceId": "lock-front", "type": "lock.unlock_failed", "summary": "Keypad: incorrect code entered" },
+        { "id": "as-04", "ts": "2026-10-21T14:02:00-07:00", "deviceId": "lock-front", "type": "lock.unlock_failed", "summary": "Keypad: incorrect code entered" },
+        { "id": "as-05", "ts": "2026-10-21T14:03:00-07:00", "deviceId": "lock-front", "type": "lock.unlock_failed", "summary": "Keypad: incorrect code entered" },
+        { "id": "as-06", "ts": "2026-10-21T14:05:00-07:00", "deviceId": "lock-front", "type": "lock.unlock_failed", "summary": "Keypad: incorrect code entered" },
+        { "id": "as-07", "ts": "2026-10-21T14:06:00-07:00", "deviceId": "lock-front", "type": "lock.unlock_failed", "summary": "Keypad: incorrect code entered" },
+        { "id": "as-08", "ts": "2026-10-21T14:08:00-07:00", "deviceId": "cam-porch", "type": "camera.offline", "summary": "Porch camera stopped reporting" },
+        { "id": "as-09", "ts": "2026-10-21T14:12:00-07:00", "deviceId": "contact-back", "type": "contact.opened", "summary": "Back door opened" },
+        { "id": "as-10", "ts": "2026-10-21T14:12:40-07:00", "deviceId": "motion-kitchen", "type": "motion.detected", "summary": "Kitchen motion" },
+        { "id": "as-11", "ts": "2026-10-21T14:15:00-07:00", "deviceId": "hub", "type": "network.unknown_device", "actorFingerprint": "ble:5e:91:c2:aa:10:7f", "summary": "Same unrecognised Bluetooth device still visible (-61 dBm)" },
+        { "id": "as-12", "ts": "2026-10-21T14:19:00-07:00", "deviceId": "contact-back", "type": "contact.closed", "summary": "Back door closed" }
+      ]
+    },
+    {
+      "id": "a-ambiguous-guest-code",
+      "title": "Guest code used outside its window",
+      "description": "Nobody is home. Two incorrect codes, then the dog walker's guest code opens the front door 21 minutes after its scheduled window. The porch clip could not be retrieved.",
+      "expected": "ambiguous",
+      "window": { "start": "2026-10-21T12:30:00-07:00", "end": "2026-10-21T13:45:00-07:00" },
+      "occupancyAtStart": {
+        "mode": "away",
+        "members": [
+          { "memberId": "r1", "presence": "away", "since": "2026-10-21T08:31:00-07:00" },
+          { "memberId": "r2", "presence": "away", "since": "2026-10-21T08:45:00-07:00" }
+        ]
+      },
+      "events": [
+        { "id": "am-01", "ts": "2026-10-21T13:18:00-07:00", "deviceId": "cam-porch", "type": "camera.person_detected", "summary": "Porch camera detected a person at the front step" },
+        { "id": "am-02", "ts": "2026-10-21T13:19:00-07:00", "deviceId": "lock-front", "type": "lock.unlock_failed", "summary": "Keypad: incorrect code entered" },
+        { "id": "am-03", "ts": "2026-10-21T13:20:00-07:00", "deviceId": "lock-front", "type": "lock.unlock_failed", "summary": "Keypad: incorrect code entered" },
+        { "id": "am-04", "ts": "2026-10-21T13:21:00-07:00", "deviceId": "lock-front", "type": "lock.unlocked", "codeLabel": "guest:dog-walker", "summary": "Front door unlocked with code guest:dog-walker" },
+        { "id": "am-05", "ts": "2026-10-21T13:21:30-07:00", "deviceId": "contact-front", "type": "contact.opened", "summary": "Front door opened" },
+        { "id": "am-06", "ts": "2026-10-21T13:22:00-07:00", "deviceId": "motion-hall", "type": "motion.detected", "summary": "Hallway motion" },
+        { "id": "am-07", "ts": "2026-10-21T13:22:30-07:00", "deviceId": "cam-porch", "type": "camera.clip_unavailable", "summary": "Porch clip for 13:18 could not be retrieved (camera storage full)" },
+        { "id": "am-08", "ts": "2026-10-21T13:38:00-07:00", "deviceId": "contact-front", "type": "contact.closed", "summary": "Front door closed" },
+        { "id": "am-09", "ts": "2026-10-21T13:39:00-07:00", "deviceId": "lock-front", "type": "lock.locked", "summary": "Front door locked" }
+      ]
+    }
+  ]
+}
