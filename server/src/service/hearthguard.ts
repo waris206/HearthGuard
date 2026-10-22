@@ -398,7 +398,7 @@ function buildActions(home: Home, ruleIds: string[], incident: Incident, assessm
   actions.push({
     id: "notify.household",
     label: `Alert ${members.join(" and ")} with the incident summary`,
-    rationale: `Assessment is "${assessment.classification}" (${incident.incidentId}).`,
+    rationale: `Assessment: ${assessment.classification.replace(/_/g, " ")} (${incident.incidentId}).`,
     basedOn: ruleIds,
     simulated: true,
   });

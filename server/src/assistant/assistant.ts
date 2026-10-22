@@ -339,7 +339,7 @@ export class InvestigationAssistant {
       lines.push(`**Cross-home check:** no other home has reported a matching indicator (${peer.peerIndicatorsVisible} peer indicator(s) compared). That is not evidence of safety.`);
     }
     if (verbose) {
-      lines.push(`Only compact indicators were compared (${peer.sharedFields.join(", ")}). Withheld: ${peer.withheldFields.slice(0, 3).join("; ")}, and more. ${peer.publishNote}`);
+      lines.push(`Only compact indicators (${peer.sharedFields.length} fields: pattern code, keyed device token, severity, hour bucket) were compared. Raw events, occupancy, device names and exact times stayed in the home. ${peer.publishNote}`);
     } else {
       lines.push(peer.publishNote);
     }
