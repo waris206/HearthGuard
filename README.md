@@ -131,7 +131,7 @@ server/
   scripts/mcp-smoke.ts
 web/src/            React UI
 scripts/e2e.mjs     Playwright end-to-end run
-docs/               demo script, submission checklist, product feedback, friction log, handoffs
+docs/               friction log (MCP SDK and toolchain issues hit while building)
 ```
 
 ---
@@ -221,7 +221,7 @@ The rules are deterministic and fully explained. Each triggered rule names the e
 * **TypeScript, Node.js 22, Express 4, zod 4**: server, validation, deterministic engine
 * **React 18, Vite 7, Tailwind CSS 3**: web console
 * **Vitest 3, Playwright 1.64, MCP Inspector CLI 2.12**: testing and verification
-* No LLM API, no cloud services, no Amazon SDKs (see [docs/PRODUCT_FEEDBACK.md](docs/PRODUCT_FEEDBACK.md))
+* No LLM API, no cloud services, no Amazon SDKs
 
 ## Known limitations
 
