@@ -80,9 +80,24 @@ try {
   console.log("4. Revert and confirm the response");
   await page.getByRole("button", { name: "Go back to the recorded presence data." }).click();
   await page.getByText("using the recorded presence data again").waitFor({ timeout: 10000 });
+  assert(await page.getByText("Observed").first().isVisible(), "evidence cards label observations");
+  assert(await page.getByText("Inferred").first().isVisible(), "evidence cards label inferences");
+  assert((await page.getByTestId("peer-interpretation").innerText()).includes("not proof of compromise"), "peer panel says a match is not proof");
+  assert((await page.getByTestId("proportionality").innerText()).startsWith("Protective set"), "proposal explains proportionality");
   await page.getByRole("button", { name: "Review & confirm" }).click();
   await page.getByRole("dialog").waitFor();
   await page.screenshot({ path: `${OUT}/04-confirm-dialog.png` });
+
+  console.log("4a. Backend failure must not look like success");
+  await page.route("**/api/conversations/*/decision", (route) =>
+    route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: { code: "INTERNAL_ERROR", message: "Internal error. Nothing was recorded by this request." } }) }),
+  );
+  await page.getByRole("button", { name: "Confirm & record" }).click();
+  await page.getByText("Not recorded:").waitFor({ timeout: 5000 });
+  assert(await page.getByRole("dialog").isVisible(), "dialog stays open on failure");
+  assert((await page.getByText("Recorded as confirmed").count()) === 0, "no success shown when the backend failed");
+  assert((await page.locator("#response").innerText()).includes("pending"), "proposal still pending after failure");
+  await page.unroute("**/api/conversations/*/decision");
   await page.getByRole("button", { name: "Confirm & record" }).click();
   await page.getByText("Recorded as confirmed").waitFor({ timeout: 10000 });
   assert(true, "confirmation recorded and shown");
@@ -111,7 +126,9 @@ try {
   assert(!overflow, "no horizontal overflow at 390px");
   await page.screenshot({ path: `${OUT}/07-mobile.png` });
 
-  assert(consoleErrors.length === 0, `no browser console errors (${consoleErrors.join(" | ")})`);
+  // The only expected console error is the deliberately failed decision request (HTTP 500).
+  const unexpected = consoleErrors.filter((m) => !/status of 500/.test(m));
+  assert(unexpected.length === 0, `no unexpected browser console errors (${unexpected.join(" | ")})`);
   console.log("\nE2E PASSED");
 } catch (e) {
   await page.screenshot({ path: `${OUT}/failure.png` }).catch(() => {});

@@ -126,12 +126,18 @@ export function matchIndicators(homeId: string, local: SharedIndicator[], store:
     const actor = p.actorToken !== null && localActors.has(p.actorToken);
     const pattern = localPatterns.has(p.patternCode);
     const withinWindow = Math.abs(Date.parse(p.observedHour) - localHour) <= 72 * 3600_000;
-    if (actor && pattern) matches.push({ indicator: p, matchType: "actor_and_pattern", matchedOn: ["actorToken", "patternCode"], strength: "strong" });
-    else if (actor) matches.push({ indicator: p, matchType: "actor", matchedOn: ["actorToken"], strength: "moderate" });
-    else if (pattern && withinWindow) matches.push({ indicator: p, matchType: "pattern", matchedOn: ["patternCode", "observedHour within 72h"], strength: "weak" });
+    if (actor && pattern)
+      matches.push({ indicator: p, matchType: "actor_and_pattern", matchedOn: ["actorToken", "patternCode"], strength: "strong", interpretation: "The same device token showed the same behaviour at another home. That links the incidents; it does not prove a break-in or identify a person." });
+    else if (actor)
+      matches.push({ indicator: p, matchType: "actor", matchedOn: ["actorToken"], strength: "moderate", interpretation: "The same device token was reported by another home for a different behaviour. It may be the same device, or a spoofed or randomised identifier." });
+    else if (pattern && withinWindow)
+      matches.push({ indicator: p, matchType: "pattern", matchedOn: ["patternCode", "observedHour within 72h"], strength: "weak", interpretation: "A similar behaviour was seen elsewhere recently. There is no evidence it involves the same actor." });
   }
   return matches;
 }
+
+export const MATCH_DISCLAIMER =
+  "A peer match is a correlation between compact indicators from different homes. It raises the heuristic score but is not proof of compromise and does not identify anyone.";
 
 export function peerAdjustment(matches: PeerMatch[]): number {
   if (matches.some((m) => m.strength === "strong")) return 15;

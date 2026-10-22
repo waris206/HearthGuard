@@ -78,3 +78,26 @@ describe("human-confirmed simulated response", () => {
     expect(code(() => svc.investigateEvents({ homeId: "home-b", scenarioId: "b-normal-morning", incidentId: inv.incidentId }))).toBe("INCIDENT_MISMATCH");
   });
 });
+
+describe("proportional response", () => {
+  it("likely concern gets the protective set; inconclusive gets verification-first without disabling the keypad", () => {
+    const sus = setup("a-suspicious-front-door");
+    const p1 = sus.svc.prepareResponse({ incidentId: sus.incidentId, decision: "propose" }).proposal!;
+    expect(p1.actions.map((a) => a.id)).toContain("lock.disable_keypad");
+    expect(p1.proportionality).toMatch(/^Protective set/);
+
+    const amb = setup("a-ambiguous-guest-code");
+    const p2 = amb.svc.prepareResponse({ incidentId: amb.incidentId, decision: "propose" }).proposal!;
+    expect(p2.actions.map((a) => a.id)).not.toContain("lock.disable_keypad");
+    expect(p2.actions.map((a) => a.id)).toContain("access.suspend_guest_code");
+    expect(p2.proportionality).toMatch(/^Verification-first/);
+  });
+
+  it("the what-if (owner home) proposal drops the disruptive keypad action", () => {
+    const { svc, incidentId } = setup("a-suspicious-front-door");
+    svc.investigateEvents({ homeId: "home-a", scenarioId: "a-suspicious-front-door", incidentId, assumptions: { occupancy: "home" } });
+    const p = svc.prepareResponse({ incidentId, decision: "propose" }).proposal!;
+    expect(p.actions.map((a) => a.id)).not.toContain("lock.disable_keypad");
+    expect(p.actions.find((a) => a.id === "notify.household")!.label).toMatch(/verify/);
+  });
+});

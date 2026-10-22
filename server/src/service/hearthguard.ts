@@ -19,6 +19,7 @@ import { assess, evaluate, localTime, RULES } from "../engine/riskEngine.js";
 import {
   deriveIndicators,
   LIMITATIONS,
+  MATCH_DISCLAIMER,
   matchIndicators,
   PeerIntelStore,
   peerAdjustment,
@@ -291,6 +292,7 @@ export class HearthGuardService {
       peerIndicatorsVisible: this.peerStore.visibleTo(home.id).length,
       matches,
       scoreAdjustment: adj,
+      interpretation: matches.length ? MATCH_DISCLAIMER : "No matching indicator. Absence of a match is not evidence of safety.",
       publishedCount,
       publishNote,
       sharedFields: [...SHARED_FIELDS],
@@ -325,7 +327,11 @@ export class HearthGuardService {
         createdAt: at,
         confirmationCode: randomBytes(3).toString("hex"),
         status: "pending",
-        summary: `${actions.length} simulated protective action(s) for a "${rev.assessment.classification}" assessment (score ${rev.assessment.score}).`,
+        summary: `${actions.length} simulated action(s) for a "${rev.assessment.classification.replace(/_/g, " ")}" assessment (score ${rev.assessment.score}).`,
+        proportionality:
+          rev.assessment.classification === "likely_security_concern"
+            ? "Protective set: the evidence supports a likely security concern."
+            : "Verification-first set: the evidence is inconclusive, so disruptive steps such as disabling the keypad are left out.",
         actions,
       };
       incident.proposals.push(proposal);
@@ -378,10 +384,12 @@ function buildActions(home: Home, ruleIds: string[], incident: Incident, assessm
   const has = (r: { id: string }) => ruleIds.includes(r.id);
   const lock = home.devices.find((d) => d.kind === "lock");
   const actions: ResponseAction[] = [];
-  if (has(RULES.R1) && lock) {
+  // Proportionality: disruptive steps only when the evidence supports a likely concern.
+  const likely = assessment.classification === "likely_security_concern";
+  if (has(RULES.R1) && lock && likely) {
     actions.push({ id: "lock.disable_keypad", label: `Disable keypad entry on ${lock.name} for 2 hours`, rationale: "Repeated incorrect codes were entered.", basedOn: [RULES.R1.id], simulated: true });
   }
-  if ((has(RULES.R1) || has(RULES.R2) || has(RULES.R4)) && lock) {
+  if ((has(RULES.R2) || has(RULES.R4) || (has(RULES.R1) && likely)) && lock) {
     actions.push({ id: "lock.secure", label: `Lock ${lock.name} and keep auto-lock on`, rationale: has(RULES.R2) || has(RULES.R4) ? "Door activity happened while nobody was home." : "Someone tried to get through this door with incorrect codes.", basedOn: [RULES.R1, RULES.R2, RULES.R4].filter(has).map((r) => r.id), simulated: true });
   }
   if (has(RULES.R6)) {
@@ -397,7 +405,7 @@ function buildActions(home: Home, ruleIds: string[], incident: Incident, assessm
   const members = home.settings.notifyMembers.map((id) => home.members.find((m) => m.id === id)?.label ?? id);
   actions.push({
     id: "notify.household",
-    label: `Alert ${members.join(" and ")} with the incident summary`,
+    label: likely ? `Alert ${members.join(" and ")} with the incident summary` : `Ask ${members.join(" and ")} to verify the activity`,
     rationale: `Assessment: ${assessment.classification.replace(/_/g, " ")} (${incident.incidentId}).`,
     basedOn: ruleIds,
     simulated: true,

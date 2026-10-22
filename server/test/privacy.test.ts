@@ -93,3 +93,16 @@ describe("cross-home privacy boundary", () => {
     expect(JSON.stringify(res.queried)).not.toContain("5e:91");
   });
 });
+
+describe("peer match wording", () => {
+  it("explains matches as correlation, never as proof of compromise", () => {
+    const svc = new HearthGuardService();
+    const inv = svc.investigateEvents({ homeId: "home-a", scenarioId: "a-suspicious-front-door" });
+    const res = svc.checkPeerIntelligence({ incidentId: inv.incidentId });
+    expect(res.matches.length).toBeGreaterThan(0);
+    expect(res.interpretation).toMatch(/not proof of compromise/);
+    for (const m of res.matches) expect(m.interpretation).toMatch(/does not prove|may be|no evidence/);
+    expect(res.scoreAdjustment).toBeLessThanOrEqual(15);
+    expect(res.updatedAssessment.uncertainty.factors.join(" ")).toMatch(/not people/);
+  });
+});

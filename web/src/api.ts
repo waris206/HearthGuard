@@ -32,6 +32,7 @@ export interface Rule {
   weight: number;
   evidenceEventIds: string[];
   explanation: string;
+  inference: string;
 }
 
 export interface Mitigation {
@@ -72,8 +73,9 @@ export interface PeerResult {
   incidentId: string;
   queried: Indicator[];
   peerIndicatorsVisible: number;
-  matches: { indicator: Indicator; matchType: string; matchedOn: string[]; strength: "strong" | "moderate" | "weak" }[];
+  matches: { indicator: Indicator; matchType: string; matchedOn: string[]; strength: "strong" | "moderate" | "weak"; interpretation: string }[];
   scoreAdjustment: number;
+  interpretation: string;
   publishedCount: number;
   publishNote: string;
   sharedFields: string[];
@@ -89,6 +91,7 @@ export interface Proposal {
   createdAt: string;
   status: "pending" | "confirmed" | "cancelled" | "superseded";
   summary: string;
+  proportionality: string;
   actions: { id: string; label: string; rationale: string; basedOn: string[]; simulated: true }[];
   decidedAt?: string;
   outcome?: string[];

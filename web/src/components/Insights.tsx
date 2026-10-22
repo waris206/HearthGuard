@@ -98,7 +98,14 @@ export function EvidencePanel({ investigation, onHover }: { investigation: Inves
               </span>
               <span className="chip border-rose-800/60 font-mono text-rose-300">+{r.weight}</span>
             </div>
-            <p className="mt-1 text-xs leading-relaxed text-slate-400">{r.explanation}</p>
+            <p className="mt-1 text-xs leading-relaxed text-slate-300">
+              <span className="mr-1 font-semibold uppercase tracking-wide text-[10px] text-sky-300">Observed</span>
+              {r.explanation}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-slate-400">
+              <span className="mr-1 font-semibold uppercase tracking-wide text-[10px] text-violet-300">Inferred</span>
+              {r.inference}
+            </p>
             <p className="mt-1 font-mono text-[11px] text-slate-500">events: {r.evidenceEventIds.join(", ")}</p>
           </li>
         ))}
@@ -211,6 +218,9 @@ export function PeerPanel({ peer, homeName }: { peer: PeerResult | null; homeNam
         Compared {peer.queried.length} indicator(s) derived from {homeName ?? "this home"} against {peer.peerIndicatorsVisible} indicator(s) shared by other synthetic homes. Score adjustment{" "}
         <span className="font-mono text-slate-200">+{peer.scoreAdjustment}</span>.
       </p>
+      <p className="mt-2 rounded-lg bg-slate-950/60 px-2.5 py-1.5 text-[11px] text-slate-300 ring-1 ring-slate-800" data-testid="peer-interpretation">
+        {peer.interpretation}
+      </p>
       {peer.matches.length > 0 && (
         <ul className="mt-2 space-y-1.5">
           {peer.matches.map((m) => (
@@ -224,6 +234,7 @@ export function PeerPanel({ peer, homeName }: { peer: PeerResult | null; homeNam
               <p className="mt-0.5 text-[11px] text-slate-500">
                 matched on {m.matchedOn.join(" + ")} · from {m.indicator.sourceHomeToken} · {m.indicator.observedHour}
               </p>
+              <p className="mt-0.5 text-[11px] text-slate-400">{m.interpretation}</p>
             </li>
           ))}
         </ul>
@@ -303,6 +314,9 @@ export function ResponsePanel({
           <p className="text-xs text-slate-400">
             <span className="font-mono text-slate-300">{proposal.proposalId}</span> · {proposal.summary}
           </p>
+          <p className="mt-1 text-xs text-slate-300" data-testid="proportionality">
+            {proposal.proportionality}
+          </p>
           <ul className="mt-2 space-y-1.5">
             {proposal.actions.map((a) => (
               <li key={a.id} className="rounded-lg border border-slate-800 bg-slate-950/50 p-2">
@@ -348,12 +362,14 @@ export function ResponsePanel({
 export function ConfirmDialog({
   proposal,
   busy,
+  error,
   onConfirm,
   onCancelProposal,
   onClose,
 }: {
   proposal: Proposal;
   busy: boolean;
+  error: string | null;
   onConfirm: () => void;
   onCancelProposal: () => void;
   onClose: () => void;
@@ -390,6 +406,11 @@ export function ConfirmDialog({
             </li>
           ))}
         </ul>
+        {error && (
+          <p className="mt-3 rounded-lg border border-rose-800/60 bg-rose-950/50 px-3 py-2 text-sm text-rose-200" role="alert">
+            Not recorded: {error}
+          </p>
+        )}
       </div>
       <div className="flex flex-col-reverse gap-2 border-t border-slate-800 bg-slate-950/50 p-4 sm:flex-row sm:justify-end">
         <button type="button" className="btn-ghost" onClick={onClose} disabled={busy}>

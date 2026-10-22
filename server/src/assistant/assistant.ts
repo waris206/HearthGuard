@@ -85,13 +85,17 @@ export class InvestigationAssistant {
   private client: Client | null = null;
   private transport: StreamableHTTPClientTransport | null = null;
 
-  constructor(private readonly mcpUrl: () => string) {}
+  constructor(
+    private readonly mcpUrl: () => string,
+    private readonly opts: { toolTimeoutMs?: number; maxConversations?: number } = {},
+  ) {}
 
   private async mcp(): Promise<Client> {
     if (this.client) return this.client;
     const client = new Client({ name: "hearthguard-assistant", version: "1.0.0" });
     const transport = new StreamableHTTPClientTransport(new URL(this.mcpUrl()));
-    await client.connect(transport);
+    // The initialize handshake needs its own timeout (SDK default is 60 s).
+    await client.connect(transport, { timeout: this.opts.toolTimeoutMs ?? 10_000 });
     this.client = client;
     this.transport = transport;
     return client;
@@ -112,7 +116,8 @@ export class InvestigationAssistant {
     steps.push(step);
     try {
       const client = await this.mcp();
-      const res = await client.callTool({ name: tool, arguments: args });
+      // A hung tool must not hang the conversation: the SDK rejects after the timeout.
+      const res = await client.callTool({ name: tool, arguments: args }, undefined, { timeout: this.opts.toolTimeoutMs ?? 10_000 });
       step.durationMs = Math.round(performance.now() - started);
       if (res.isError) {
         const text = (res.content as any[])?.[0]?.text ?? "";
@@ -161,6 +166,9 @@ export class InvestigationAssistant {
     try {
       conv.context = await this.call(steps, "get_home_context", { homeId, scenarioId });
       this.conversations.set(conv.id, conv);
+      // Bound memory: drop the oldest conversations beyond the cap (Map keeps insertion order).
+      const max = this.opts.maxConversations ?? 200;
+      while (this.conversations.size > max) this.conversations.delete(this.conversations.keys().next().value!);
       const sc = conv.context.activeScenario;
       reply = `Connected to ${conv.context.home.name}. Selected window: "${sc.title}" (${sc.eventCount} events). Household occupancy at the start: ${sc.occupancy.members
         .map((m: Json) => `${m.label} ${m.presence}`)
@@ -298,11 +306,10 @@ export class InvestigationAssistant {
   private describeInvestigation(inv: Json): string {
     const a = inv.assessment;
     const lines = [
-      `**${inv.scenario.title}** (${inv.incidentId}, revision ${inv.revision}). ${a.summary}`,
-      `Heuristic score ${pct(a.score)} (${a.level}), classification **${CLASS_LABEL[a.classification]}**, uncertainty ${a.uncertainty.level}.`,
+      `**${inv.scenario.title}** (${inv.incidentId}): **${CLASS_LABEL[a.classification]}**, heuristic score ${pct(a.score)}, uncertainty ${a.uncertainty.level}.`,
     ];
     if (inv.triggeredRules.length) {
-      lines.push("Evidence:");
+      lines.push("What the sensors show (inferences are in the Evidence panel):");
       for (const r of inv.triggeredRules) lines.push(`- ${r.ruleId} ${r.name} (+${r.weight}): ${r.explanation}`);
     }
     for (const m of inv.mitigations) lines.push(`- ${m.id} ${m.name} (${m.weight}): ${m.explanation}`);
@@ -333,13 +340,14 @@ export class InvestigationAssistant {
     if (peer.matches.length) {
       const strongest = peer.matches[0];
       lines.push(
-        `**Cross-home check:** ${peer.matches.length} matching indicator(s) from another synthetic home. Strongest: ${strongest.strength} match on ${strongest.matchedOn.join(" + ")} (${strongest.indicator.patternCode}, ${strongest.indicator.severity}, observed hour ${strongest.indicator.observedHour}). Score adjustment +${peer.scoreAdjustment}; updated score ${pct(peer.updatedAssessment.score)}, ${CLASS_LABEL[peer.updatedAssessment.classification]}.`,
+        `**Cross-home check:** ${peer.matches.length} matching indicator(s) from another synthetic home. Strongest: ${strongest.strength} match on ${strongest.matchedOn.join(" + ")} (${strongest.indicator.patternCode}, observed hour ${strongest.indicator.observedHour}). Score +${peer.scoreAdjustment} → ${pct(peer.updatedAssessment.score)}, ${CLASS_LABEL[peer.updatedAssessment.classification]}.`,
       );
+      lines.push(`_${peer.interpretation}_`);
     } else {
       lines.push(`**Cross-home check:** no other home has reported a matching indicator (${peer.peerIndicatorsVisible} peer indicator(s) compared). That is not evidence of safety.`);
     }
     if (verbose) {
-      lines.push(`Only compact indicators (${peer.sharedFields.length} fields: pattern code, keyed device token, severity, hour bucket) were compared. Raw events, occupancy, device names and exact times stayed in the home. ${peer.publishNote}`);
+      lines.push(`Only ${peer.sharedFields.length} compact indicator fields were compared. Raw events, occupancy, device names and exact times stayed in the home. ${peer.publishNote}`);
     } else {
       lines.push(peer.publishNote);
     }
@@ -350,7 +358,7 @@ export class InvestigationAssistant {
     if (res.status === "not_needed") return `**Response:** ${res.reason}`;
     const p = res.proposal;
     return [
-      `**Proposed response${refreshed ? " (updated for the new assessment)" : ""}** ${p.proposalId}. All actions are simulated, and nothing is recorded until you confirm:`,
+      `**Proposed response${refreshed ? " (updated for the new assessment)" : ""}** ${p.proposalId}. ${p.proportionality} All actions are simulated, and nothing is recorded until you confirm:`,
       ...p.actions.map((a: Json) => `- ${a.label}. _${a.rationale}_`),
       "Use **Review & confirm** to approve or cancel.",
     ].join("\n");

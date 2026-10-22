@@ -138,6 +138,7 @@ export function evaluate(home: Home, scenario: Scenario, assumptions: Assumption
       weight,
       evidenceEventIds: r1Cluster.map((e) => e.id),
       explanation: `${n} incorrect codes on ${device(r1Cluster[0].deviceId).name} within ${Math.round((t(r1Cluster[n - 1]) - t(r1Cluster[0])) / MIN)} min (threshold: ${THRESHOLDS.failedAttempts} in ${THRESHOLDS.failedWindowMin} min).`,
+      inference: "Consistent with someone guessing codes. A household member who forgot their code is the benign alternative.",
     });
   } else {
     const unexplained = failures.filter((f) => !explainedByResident(f));
@@ -167,6 +168,7 @@ export function evaluate(home: Home, scenario: Scenario, assumptions: Assumption
       weight: 15,
       evidenceEventIds: awayActivity.map((e) => e.id),
       explanation: `${awayActivity.length} door/indoor event(s) while no household member was present and no valid in-schedule credential explained them.`,
+      inference: "Someone was at or inside the home without a known reason, unless presence data is wrong (e.g. a phone left at work).",
     });
   } else {
     notTriggered.push({
@@ -193,6 +195,7 @@ export function evaluate(home: Home, scenario: Scenario, assumptions: Assumption
       weight: 10,
       evidenceEventIds: unknown.map((e) => e.id),
       explanation: `An unrecognised radio device was seen ${unknown.length} time(s) within ${THRESHOLDS.unknownDeviceProximityMin} min of door activity. It is not on the household device list.`,
+      inference: "The person at the door may have carried this device. A passer-by or neighbour's device is the benign alternative.",
     });
   } else {
     notTriggered.push({ ruleId: RULES.R3.id, name: RULES.R3.name, reason: "No unrecognised devices near door activity." });
@@ -221,7 +224,8 @@ export function evaluate(home: Home, scenario: Scenario, assumptions: Assumption
       name: RULES.R4.name,
       weight: 25,
       evidenceEventIds: [r1Cluster[r1Cluster.length - 1].id, ...r4.map((e) => e.id)],
-      explanation: `${r4.map((e) => device(e.deviceId).location).join(", ")} opened within ${THRESHOLDS.forcedEntryWindowMin} min of the last failed code, with no successful unlock in between and nobody home. This sequence is consistent with entry through another door.`,
+      explanation: `${r4.map((e) => device(e.deviceId).location).join(", ")} opened within ${THRESHOLDS.forcedEntryWindowMin} min of the last failed code, with no successful unlock in between and nobody home.`,
+      inference: "This sequence is consistent with entry through another door. The sensor cannot tell who opened it.",
     });
   } else {
     notTriggered.push({
@@ -243,7 +247,8 @@ export function evaluate(home: Home, scenario: Scenario, assumptions: Assumption
       name: RULES.R5.name,
       weight: 5,
       evidenceEventIds: camLoss.map((e) => e.id),
-      explanation: `${camLoss.map((e) => e.summary).join("; ")}. Visual confirmation is unavailable for part of the window.`,
+      explanation: `${camLoss.map((e) => e.summary).join("; ")}.`,
+      inference: "Visual confirmation is unavailable for part of the window. Loss of coverage alone may be a fault, not tampering.",
     });
     uncertainty.push({ factor: "Camera footage is missing for part of the window, so the person cannot be visually verified.", weight: 1 });
   } else {
@@ -258,6 +263,7 @@ export function evaluate(home: Home, scenario: Scenario, assumptions: Assumption
       weight: 10,
       evidenceEventIds: outOfSchedule.map((e) => e.id),
       explanation: `Guest code ${outOfSchedule.map((e) => `"${e.codeLabel}" at ${localTime(e.ts)}`).join(", ")} was used outside its scheduled window.`,
+      inference: "Either a late but legitimate visit or a shared or leaked code. The data cannot tell them apart.",
     });
     uncertainty.push({
       factor: "A valid household credential was used; a legitimate late visit and a shared or leaked code cannot be told apart from sensor data alone.",

@@ -83,10 +83,14 @@ export default function App() {
     if (!turn || !p) return;
     setBusy(true);
     setError(null);
-    setMessages((m) => [...m, { role: "user", text: decision === "confirm" ? `✔ Confirmed ${p.proposalId} in the dialog` : `✖ Cancelled ${p.proposalId} in the dialog` }]);
     try {
-      apply(await api.decide(turn.conversationId, p.proposalId, decision));
-      setConfirmOpen(false);
+      const res = await api.decide(turn.conversationId, p.proposalId, decision);
+      // Only describe the decision as done if the backend actually recorded it.
+      const recorded = res.state.proposal?.proposalId === p.proposalId && res.state.proposal.status === (decision === "confirm" ? "confirmed" : "cancelled");
+      setMessages((m) => [...m, { role: "user", text: `${decision === "confirm" ? "Confirm" : "Cancel"} ${p.proposalId} (dialog)` }]);
+      apply(res);
+      if (recorded) setConfirmOpen(false);
+      else setError(`The ${decision} was not recorded. See the reply for the reason.`);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -177,7 +181,7 @@ export default function App() {
       </footer>
 
       {confirmOpen && proposal && proposal.status === "pending" && (
-        <ConfirmDialog proposal={proposal} busy={busy} onConfirm={() => decide("confirm")} onCancelProposal={() => decide("cancel")} onClose={() => setConfirmOpen(false)} />
+        <ConfirmDialog proposal={proposal} busy={busy} error={error} onConfirm={() => decide("confirm")} onCancelProposal={() => decide("cancel")} onClose={() => setConfirmOpen(false)} />
       )}
     </div>
   );

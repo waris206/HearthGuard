@@ -9,20 +9,33 @@ import { listHomes } from "./domain/fixtures.js";
 import { createMcpServer } from "./mcp/server.js";
 import { HearthGuardService } from "./service/hearthguard.js";
 import { InvestigationAssistant } from "./assistant/assistant.js";
+import { DEFAULT_DEV_ORIGINS, originGuard, requireJson, securityHeaders } from "./security.js";
 
 export interface AppOptions {
   service: HearthGuardService;
   assistant: InvestigationAssistant;
   host?: string;
   allowedHosts?: string[];
+  /** Extra browser origins allowed to call /mcp and /api (same-origin is always allowed). */
+  allowedOrigins?: string[];
   webDist?: string;
 }
 
 const here = dirname(fileURLToPath(import.meta.url));
 
-export function createApp({ service, assistant, host = "127.0.0.1", allowedHosts, webDist = join(here, "..", "..", "web", "dist") }: AppOptions) {
+export function createApp({
+  service,
+  assistant,
+  host = "127.0.0.1",
+  allowedHosts,
+  allowedOrigins = DEFAULT_DEV_ORIGINS,
+  webDist = join(here, "..", "..", "web", "dist"),
+}: AppOptions) {
   // Includes Host-header validation (DNS-rebinding protection) for localhost binds.
   const app = createMcpExpressApp({ host, allowedHosts });
+  app.disable("x-powered-by");
+  app.use(securityHeaders);
+  app.use(["/mcp", "/api"], originGuard(allowedOrigins));
 
   // ---- MCP: Streamable HTTP, stateless (a fresh server+transport per request; state lives in the service) ----
   app.post("/mcp", async (req: Request, res: Response) => {
@@ -47,6 +60,7 @@ export function createApp({ service, assistant, host = "127.0.0.1", allowedHosts
 
   // ---- REST API for the web UI ----
   const api = express.Router();
+  api.use(requireJson);
   const wrap = (fn: (req: Request, res: Response) => Promise<unknown> | unknown) => async (req: Request, res: Response) => {
     try {
       const out = await fn(req, res);
@@ -54,7 +68,9 @@ export function createApp({ service, assistant, host = "127.0.0.1", allowedHosts
     } catch (e) {
       if (e instanceof z.ZodError) return res.status(400).json({ error: { code: "INVALID_INPUT", message: e.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ") } });
       const message = e instanceof Error ? e.message : String(e);
-      res.status(/Unknown conversation/.test(message) ? 404 : 500).json({ error: { code: "ERROR", message } });
+      if (/Unknown conversation/.test(message)) return res.status(404).json({ error: { code: "UNKNOWN_CONVERSATION", message: "Unknown conversation. Start a new one." } });
+      console.error("API error:", e);
+      res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Internal error. Nothing was recorded by this request." } });
     }
   };
 

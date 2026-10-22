@@ -100,7 +100,10 @@ export interface TriggeredRule {
   name: string;
   weight: number;
   evidenceEventIds: string[];
+  /** What the sensors recorded (observation). */
   explanation: string;
+  /** What HearthGuard infers from it, including the benign alternative (inference). */
+  inference: string;
 }
 
 export interface Mitigation {
@@ -157,6 +160,8 @@ export interface PeerMatch {
   matchType: "actor_and_pattern" | "actor" | "pattern";
   matchedOn: string[];
   strength: "strong" | "moderate" | "weak";
+  /** Plain-language meaning of this match; never a claim of compromise. */
+  interpretation: string;
 }
 
 export interface PeerCheck {
@@ -183,6 +188,7 @@ export interface ResponseProposal {
   confirmationCode: string;
   status: "pending" | "confirmed" | "cancelled" | "superseded";
   summary: string;
+  proportionality: string;
   actions: ResponseAction[];
   decidedAt?: string;
   outcome?: string[];

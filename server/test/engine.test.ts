@@ -66,3 +66,30 @@ describe("risk engine scenarios", () => {
     expect(assess(engine, 15).classification).toBe("likely_security_concern");
   });
 });
+
+describe("calibration guards", () => {
+  it("every normal fixture in both homes stays no-concern with low uncertainty", () => {
+    for (const homeId of ["home-a", "home-b"]) {
+      const home = getHome(homeId)!;
+      for (const s of home.scenarios.filter((x) => x.expected === "normal")) {
+        const a = assess(evaluate(home, s));
+        expect(a.classification, s.id).toBe("no_concern");
+        expect(a.uncertainty.level, s.id).toBe("low");
+      }
+    }
+  });
+
+  it("a strong peer match cannot turn an empty rule set into a concern", () => {
+    const { engine } = run("home-a", "a-normal-evening");
+    expect(assess(engine, 15).classification).toBe("no_concern");
+  });
+
+  it("separates what was observed from what is inferred", () => {
+    for (const id of ["a-suspicious-front-door", "a-ambiguous-guest-code"]) {
+      for (const r of run("home-a", id).engine.triggeredRules) {
+        expect(r.inference.length, r.ruleId).toBeGreaterThan(20);
+        expect(r.explanation, r.ruleId).not.toMatch(/consistent with|may have|could be/i);
+      }
+    }
+  });
+});
