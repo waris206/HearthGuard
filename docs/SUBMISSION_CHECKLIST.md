@@ -16,7 +16,7 @@ Deadline: **Oct 23, 2026, 12:00 PM PDT** (Oct 24, 00:00 PKT).
 | Demo video under 3 min, public on YouTube/Vimeo, shows the project running, no unlicensed music or trademarks | **Open (Akash).** Script in `docs/DEMO_SCRIPT.md`. |
 | Text description | **Open (Akash).** Start from the README intro. |
 | Product feedback for each tool/SDK used | Draft in `docs/PRODUCT_FEEDBACK.md`. Review and edit it. |
-| Friction log (optional, up to 10% bonus) | Draft in `docs/PRODUCT_FEEDBACK.md`. |
+| Friction log (optional, up to 10% bonus) | `docs/FRICTION_LOG.md`: 7 verified entries, all MCP SDK / toolchain. None are Amazon-specific, because no Amazon tool was used. |
 | Track selection: Alexa+ | **Open (Akash)** on Devpost. |
 
 ## Steps for Akash, in order

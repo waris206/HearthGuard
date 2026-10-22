@@ -99,5 +99,7 @@ describe("proportional response", () => {
     const p = svc.prepareResponse({ incidentId, decision: "propose" }).proposal!;
     expect(p.actions.map((a) => a.id)).not.toContain("lock.disable_keypad");
     expect(p.actions.find((a) => a.id === "notify.household")!.label).toMatch(/verify/);
+    // Next steps must agree with the proposal's proportionality.
+    expect(svc.getIncident(incidentId).revisions.at(-1)!.assessment.recommendedNextSteps.join(" ")).not.toMatch(/disable keypad/i);
   });
 });

@@ -52,7 +52,7 @@ npm run dev          # then open http://localhost:5173
 ### Tests and checks
 
 ```bash
-npm test             # 33 unit + integration tests (vitest), incl. real MCP client over HTTP
+npm test             # 46 unit + integration tests (vitest), incl. real MCP client over HTTP and security hardening
 npm run typecheck    # server + web TypeScript
 npm run build && npm run e2e   # headless-Chromium end-to-end demo run (Playwright), screenshots in e2e-screenshots/
 npm run smoke        # with the server running: SDK client smoke test of all four tools
@@ -73,7 +73,8 @@ npx @modelcontextprotocol/inspector --cli http://127.0.0.1:8787/mcp --transport 
 |---|---|---|
 | `PORT` | `8787` | HTTP port |
 | `HG_HOST` | `127.0.0.1` | Bind address. Localhost binds get Host-header (DNS-rebinding) protection. |
-| `HG_ALLOWED_HOSTS` | (unset) | Comma-separated Host names to accept when exposed, e.g. `my-tunnel.example.com`. Loopback stays allowed. |
+| `HG_ALLOWED_HOSTS` | (unset) | Comma-separated Host names to accept when exposed, e.g. `my-tunnel.example.com`. Loopback stays allowed. **Required** for any non-loopback `HG_HOST`; otherwise the server refuses to start. |
+| `HG_ALLOWED_ORIGINS` | (unset) | Extra browser origins allowed to POST to `/mcp` and `/api`. Same-origin and the Vite dev origin (`:5173`) are always allowed. |
 | `HG_PERSIST` | on | `0` keeps state in memory only. |
 | `HG_STATE_FILE` | `server/.runtime/state.json` | Where incident history and the shared store are persisted. Delete it or use **Reset demo** to start clean. |
 | `HG_INDICATOR_KEY` | demo key | HMAC key for indicator tokens. Change it for any non-demo use. |
@@ -84,7 +85,7 @@ Exposing the MCP endpoint beyond localhost, for example to try it from an MCP-ca
 HG_HOST=0.0.0.0 HG_ALLOWED_HOSTS=your-public-hostname npm start
 ```
 
-There is **no authentication** on the endpoint. It only serves synthetic data and simulated actions, but don't expose it longer than you need to.
+There is **no authentication** on the endpoint. It only serves synthetic data and simulated actions, but don't expose it longer than you need to. **The default is loopback-only**, and the server refuses a public bind without an explicit host allowlist.
 
 ---
 
@@ -130,7 +131,7 @@ server/
   scripts/mcp-smoke.ts
 web/src/            React UI
 scripts/e2e.mjs     Playwright end-to-end run
-docs/               demo script, submission checklist, product-feedback draft
+docs/               demo script, submission checklist, product feedback, friction log, handoffs
 ```
 
 ---
@@ -150,6 +151,7 @@ The rules are deterministic and fully explained. Each triggered rule names the e
 | HG-M1 Household member present | Door or indoor activity while someone was home (or assumed home) | −10 |
 | Peer match | Strongest match only: actor+pattern +15, actor +12, pattern within 72 h +5 | |
 
+* **Observed vs inferred.** Each triggered rule carries `explanation` (what the sensors recorded) and `inference` (what it may mean, including the benign alternative). The UI labels them **Observed** and **Inferred**.
 * **Score.** A 0 to 100 sum of rule weights. It is **not a calibrated probability of compromise**, and every output says so.
 * **Uncertainty** comes from named factors: missing camera footage, a legitimate credential being involved, sub-threshold failures, no device identifier, hypothetical assumptions.
 * **Classification.** `likely_security_concern` needs a score of 50 or more and uncertainty that is not high. `no_concern` needs a score under 20 and uncertainty that is not high. Everything else is `inconclusive`.
@@ -172,6 +174,7 @@ The rules are deterministic and fully explained. Each triggered rule names the e
   `schemaVersion, indicatorId, sourceHomeToken, patternCode, actorToken, severity, confidence, observedHour`
 * Raw radio fingerprints and home ids are replaced with **HMAC-SHA256 tokens** using a shared demo key. Timestamps are reduced to the UTC hour.
 * Never shared: timelines, event ids, exact times, occupancy and presence, device names and locations, access-code labels, member identities.
+* Every match carries an `interpretation`, and the check returns a disclaimer: a match is a correlation, **not proof of compromise**, and it never identifies anyone. Peer intelligence adds at most +15 and can't create a concern when no rule fired.
 * A home never matches its own indicators. **Hypothetical (what-if) revisions are never published.**
 * Tests in `server/test/privacy.test.ts` serialise everything Home B can see and assert that none of Home A's raw values appear in it.
 
@@ -180,6 +183,7 @@ The rules are deterministic and fully explained. Each triggered rule names the e
 ## Human-controlled response
 
 * `prepare_response(decision="propose")` returns actions marked `simulated: true` and **records nothing**.
+* **Proportionality.** A likely concern gets the protective set (including disabling the keypad). An inconclusive assessment gets a verification-first set without disruptive steps. The proposal states which, and the recommended next steps match.
 * Recording needs `decision="confirm"` or `"cancel"`, plus the matching `proposalId` **and** `confirmationCode`. Wrong code, unknown proposal, already-decided, or superseded proposals are rejected (tested).
 * New evidence (a new revision) **supersedes** pending proposals, so nobody can confirm a stale plan.
 * In the UI, confirmation happens only through an explicit dialog click. The confirmation code stays server-side and is redacted from what the browser sees.
@@ -196,6 +200,27 @@ The rules are deterministic and fully explained. Each triggered rule names the e
 | Deterministic rule engine, uncertainty, classification | Every protective action (recorded only, never executed) |
 | Orchestrator making real MCP tool calls; what-if revisions on persistent incidents | Conversational assistant: keyword intents, templated replies (no LLM) |
 | Incident history, proposals and decisions persisted to a local JSON file | |
+
+## Security assumptions (local demo)
+
+| Risk | What HearthGuard does | Tested in |
+|---|---|---|
+| Unintended exposure of the unauthenticated endpoint | Binds `127.0.0.1` by default. Refuses `0.0.0.0` or any non-loopback host unless `HG_ALLOWED_HOSTS` is set. | `hardening.test.ts` |
+| DNS rebinding | SDK Host-header validation (403 for foreign Host) | `mcp.integration.test.ts` |
+| Cross-site requests from a web page | `Origin` validated on `/mcp` and `/api` (same-origin, dev UI or no Origin only). `/api` POSTs must be `application/json`, which blocks `text/plain` CSRF. | `hardening.test.ts` |
+| Malformed or hostile tool arguments | zod schemas with id regexes, length caps and strict objects. Unknown ids give structured errors with no side effects. | `hardening.test.ts`, `mcp.integration.test.ts` |
+| Hung or unreachable tools | 10 s timeout on connect and on each tool call. Failures are shown as failures and nothing is fabricated. | `hardening.test.ts`, `assistant.test.ts` |
+| Confirmation bypass | Enforced in the backend: proposal id + server-held confirmation code, single decision, superseded on new evidence. The UI never shows success unless the backend recorded it. | `response.test.ts`, `scripts/e2e.mjs` |
+| Leaking internals | Generic 500 messages, no `X-Powered-By`, CSP / nosniff / frame-deny headers | `hardening.test.ts` |
+| Secrets | None used. No `.env`. The HMAC key is a documented demo default. Git history scanned. | |
+
+## Built with
+
+* **MCP TypeScript SDK 1.32.1** (`@modelcontextprotocol/sdk`): Streamable HTTP server and client, protocol 2025-11-25
+* **TypeScript, Node.js 22, Express 4, zod 4**: server, validation, deterministic engine
+* **React 18, Vite 7, Tailwind CSS 3**: web console
+* **Vitest 3, Playwright 1.64, MCP Inspector CLI 2.12**: testing and verification
+* No LLM API, no cloud services, no Amazon SDKs (see [docs/PRODUCT_FEEDBACK.md](docs/PRODUCT_FEEDBACK.md))
 
 ## Known limitations
 

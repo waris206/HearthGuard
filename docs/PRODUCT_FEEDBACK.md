@@ -1,26 +1,31 @@
-# Product feedback and friction log (draft, edit before submitting)
+# Product feedback (for the Devpost form). Edit it into your own words.
 
-These are real issues hit while building HearthGuard on 2026-10-22.
+Based only on what happened while building HearthGuard. Detailed evidence for each issue is in [FRICTION_LOG.md](FRICTION_LOG.md).
 
-## MCP TypeScript SDK (`@modelcontextprotocol/sdk` 1.32.1)
+## Tools actually used
 
-**What worked well**
-* `McpServer.registerTool` with zod input and output schemas gives validated `structuredContent` and JSON Schema in `tools/list` with very little code.
-* The stateless Streamable HTTP pattern (fresh server and transport per POST, `sessionIdGenerator: undefined`, `enableJsonResponse: true`) was easy to test with plain HTTP.
-* `createMcpExpressApp()` adds Host-header validation for localhost binds by default, which is a sensible security default.
-* Negotiation of `2025-11-25` worked out of the box between the SDK client and server. `transport.protocolVersion` makes it easy to assert in tests.
+| Tool | Version | Used for |
+|---|---|---|
+| MCP TypeScript SDK (`@modelcontextprotocol/sdk`) | 1.32.1 | MCP server (4 tools, Streamable HTTP, protocol 2025-11-25) **and** the orchestrator's MCP client |
+| MCP Inspector CLI | 2.12.0 | Independent check of tools/list and tools/call |
+| zod | 4.6.7 | Tool input/output schemas, fixture validation, REST validation |
+| Express | 4.22 | HTTP server for /mcp, /api and the built UI |
+| React 18 + Vite 7 + Tailwind CSS 3 | | Web console |
+| Vitest 3, Playwright 1.64 (headless Chromium) | | 46 unit/integration tests, end-to-end demo test |
+| Node.js | 22.22 | Runtime |
 
-**Friction**
-1. *Open vs closed output schemas.* With zod v4, a plain `z.object()` output schema is emitted to clients as `additionalProperties: false`. The SDK client then rejected any tool result that had extra documented fields ("data must NOT have additional properties"). Switching to `z.looseObject()` fixed it, but MCP Inspector's `--strict` portability check then warns that `additionalProperties: {}` "constrains nothing". The docs should say which pattern is recommended for partially specified outputs.
-2. Error results (`isError: true`) skip output-schema validation, which is right. But the convention for machine-readable error codes inside `content` isn't documented, so we put JSON in a text block.
-3. Built-in input-validation errors come back as plain-text `isError` results, not a JSON-RPC `-32602` error. That's fine, but it surprised us; clients have to parse text.
+**Not used:** Alexa Skills Kit, the Alexa+ developer tooling, Ring, Bee, Fire TV and AWS. We have no first-hand feedback on Amazon tools. If you do register the MCP server with Alexa+ before submitting, add that experience here.
 
-## MCP Inspector CLI (2.12.0)
-* `--cli ... --transport http --method tools/call --tool-arg k=v` was a fast way to verify a remote server without writing a client.
-* The schema portability warnings are useful, but they conflict with the SDK behaviour in friction item 1 above.
+## MCP TypeScript SDK
 
-## Vite / @vitejs/plugin-react
-* `npm i vite@6 @vitejs/plugin-react` failed with ERESOLVE because the latest plugin needs Vite 8. Pinning `@vitejs/plugin-react@4` worked, but it pulled a second Vite (7.x) and its types clashed in `vite.config.ts`. Aligning on `vite@7` fixed it.
+* **What worked:** `registerTool` with zod schemas is concise and gives validated inputs plus `structuredContent`. The stateless Streamable HTTP pattern (fresh server and transport per POST, JSON responses) was simple to run and test. Protocol `2025-11-25` negotiated with no configuration, and `transport.protocolVersion` made it easy to assert in tests. Using the same SDK as a client let the app's orchestrator make real tool calls.
+* **What needs improvement:** zod 4 closed-object output schemas silently become `additionalProperties: false` and break clients (friction #1). The Express helper validates Host but not Origin (#3) and only warns on public binds (#4). The connect/initialize timeout is separate from per-call timeouts (#5).
+* **Onboarding:** the bundled examples (`dist/esm/examples/server/simpleStatelessStreamableHttp.js`) were the fastest way in. The security items above were found by probing, not from docs.
+* **Workarounds used:** `z.looseObject()`, our own Origin guard and JSON-only middleware, refusing public binds without an allowlist, and `connect(transport, { timeout })`.
+* **Would we use it again?** Yes. Once the schema and security defaults were understood, the SDK did everything needed.
 
-## Testing note
-* Node's `fetch` silently ignores a custom `Host` header, so DNS-rebinding protection has to be tested with `node:http`.
+## MCP Inspector CLI
+
+* **What worked:** `--cli --transport http --method tools/call --tool-arg k=v` checked a running server in one command, no code needed.
+* **Needs improvement:** the `--strict` portability warnings flag the SDK's own recommended open-object output (friction #2).
+* **Would we use it again?** Yes, as a quick independent check.

@@ -342,7 +342,12 @@ export function assess(engine: EngineResult, peerAdjustment = 0, peerFactor?: st
     steps.push("No action needed. The activity matches expected household behaviour.");
   } else {
     if (ids.has(RULES.R4.id) || ids.has(RULES.R2.id)) steps.push("Check on the home: contact household members to confirm nobody is inside.");
-    if (ids.has(RULES.R1.id)) steps.push("Temporarily disable keypad entry and rotate access codes.");
+    if (ids.has(RULES.R1.id))
+      steps.push(
+        classification === "likely_security_concern"
+          ? "Temporarily disable keypad entry and rotate access codes."
+          : "Ask household members whether anyone mistyped the code; rotate codes if nobody did.",
+      );
     if (ids.has(RULES.R3.id)) steps.push("Keep the unrecognised device flagged and watch for it returning.");
     if (ids.has(RULES.R5.id)) steps.push("Restore camera power and storage, then review any footage that was saved.");
     if (ids.has(RULES.R6.id)) steps.push("Ask the guest-code holder whether they visited late; suspend the guest code until confirmed.");
